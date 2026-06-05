@@ -1,0 +1,19 @@
+name: Reminders Cron
+
+# External scheduler (trigger path ②). GitHub runs this every 15 minutes and
+# hits the deployed cron endpoint, which both wakes an idled free dyno AND runs
+# the reminder job. Configure repo secrets DEPLOYED_URL and CRON_SECRET.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder job
+        run: |
+          curl -fsS -X GET "${{ secrets.DEPLOYED_URL }}/api/internal/cron/reminders" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            && echo "Reminder job triggered"

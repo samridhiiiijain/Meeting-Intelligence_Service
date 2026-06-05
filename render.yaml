@@ -1,0 +1,54 @@
+# Render Blueprint — one-click deploy of the API + free Postgres.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: meeting-intelligence-service
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build && npx prisma migrate deploy
+    startCommand: node dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mis-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      # In production the in-process cron may not fire on the idled free dyno;
+      # an external scheduler should hit GET /api/internal/cron/reminders instead.
+      - key: REMINDER_CRON_ENABLED
+        value: "false"
+      - key: REMINDER_DEDUPE_HOURS
+        value: "24"
+      # Secrets — set these in the Render dashboard (sync:false keeps them out of git).
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        value: Hintro Reminders <onboarding@resend.dev>
+      - key: REMINDER_TO_OVERRIDE
+        sync: false
+      - key: CANDIDATE_NAME
+        sync: false
+      - key: CANDIDATE_EMAIL
+        sync: false
+      - key: REPOSITORY_URL
+        sync: false
+      - key: DEPLOYED_URL
+        sync: false
+
+databases:
+  - name: mis-db
+    plan: free

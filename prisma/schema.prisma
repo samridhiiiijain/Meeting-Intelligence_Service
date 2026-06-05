@@ -1,0 +1,112 @@
+// Meeting Intelligence Service — data model
+// See DECISIONS.md (D3 Database, D4 ORM) for rationale.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ActionItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ActionItemSource {
+  AI
+  MANUAL
+}
+
+enum ReminderStatus {
+  SENT
+  FAILED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  meetings    Meeting[]
+  actionItems ActionItem[]
+
+  @@map("users")
+}
+
+model Meeting {
+  id           String   @id @default(uuid())
+  userId       String
+  title        String
+  participants String[] // canonical attendee emails
+  meetingDate  DateTime
+  transcript   Json // [{ timestamp, speaker, text }]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis    Analysis?
+  actionItems ActionItem[]
+
+  @@index([userId, meetingDate])
+  @@map("meetings")
+}
+
+model Analysis {
+  id        String   @id @default(uuid())
+  meetingId String   @unique // latest analysis per meeting (re-runnable, overwrites)
+  summary   Json // [{ text, citations: [{ timestamp }] }]
+  decisions Json // [{ text, citations: [...] }]
+  followUps Json // [{ text, citations: [...] }]
+  model     String
+  createdAt DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("analyses")
+}
+
+model ActionItem {
+  id        String           @id @default(uuid())
+  meetingId String?
+  userId    String
+  task      String
+  assignee  String?
+  status    ActionItemStatus @default(PENDING)
+  dueDate   DateTime?
+  citations Json             @default("[]") // [{ timestamp }] for AI-extracted items
+  source    ActionItemSource @default(MANUAL)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  meeting   Meeting?   @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
+
+  @@index([userId, status])
+  @@index([assignee])
+  @@index([meetingId])
+  @@index([status, dueDate])
+  @@map("action_items")
+}
+
+model Reminder {
+  id           String         @id @default(uuid())
+  actionItemId String
+  channel      String         @default("email")
+  recipient    String
+  status       ReminderStatus
+  message      String
+  error        String?
+  sentAt       DateTime       @default(now())
+
+  actionItem ActionItem @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+
+  @@index([actionItemId, sentAt])
+  @@map("reminders")
+}

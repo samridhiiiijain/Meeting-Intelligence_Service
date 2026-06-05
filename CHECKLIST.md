@@ -1,0 +1,42 @@
+# Submission Checklist
+
+## Core Requirements
+
+- [ ] Public GitHub repository submitted
+- [ ] Application deployed and accessible publicly
+- [x] README contains setup and run instructions
+
+- [x] Authentication implemented
+- [x] Database models designed and documented
+- [x] Global error handling implemented
+- [x] Unified API response format implemented
+- [x] Request trace ID implemented and included in logs
+
+- [x] Meeting analysis endpoint implemented
+- [x] AI-generated insights include transcript citations
+- [x] Hallucination prevention / grounding strategy implemented
+
+- [x] Action item management implemented
+- [x] Overdue action item detection implemented
+- [x] Scheduled reminder job implemented
+
+- [x] One real third-party integration implemented (Resend email)
+- [x] Reminder notifications delivered through integration
+
+- [x] Unit tests implemented
+- [x] Input validation implemented
+
+## Bonus Milestones (Optional)
+
+- [x] Docker support
+- [x] CI/CD pipeline (GitHub Actions)
+- [ ] Redis caching
+- [ ] Rate limiting
+- [ ] Integration tests
+
+> Notes
+> - Items left unchecked at the top (GitHub repo + public deployment) are completed during
+>   submission once the repo is pushed and the Render Blueprint is deployed; the code, `render.yaml`,
+>   and `Dockerfile` are ready.
+> - "Reminder notifications delivered through integration" is wired and unit-tested; live delivery
+>   requires `RESEND_API_KEY` (and `REMINDER_TO_OVERRIDE` on the free tier — see DECISIONS.md D8).

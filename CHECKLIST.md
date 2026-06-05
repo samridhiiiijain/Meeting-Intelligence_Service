@@ -34,9 +34,4 @@
 - [ ] Rate limiting
 - [ ] Integration tests
 
-> Notes
-> - Items left unchecked at the top (GitHub repo + public deployment) are completed during
->   submission once the repo is pushed and the Render Blueprint is deployed; the code, `render.yaml`,
->   and `Dockerfile` are ready.
-> - "Reminder notifications delivered through integration" is wired and unit-tested; live delivery
->   requires `RESEND_API_KEY` (and `REMINDER_TO_OVERRIDE` on the free tier — see DECISIONS.md D8).
+

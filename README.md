@@ -1,180 +1,179 @@
 # Meeting Intelligence Service
 
-An AI-powered meeting intelligence backend. It stores meetings and transcripts, generates
-**grounded, citation-backed** insights (summary, action items, decisions, follow-ups), tracks
-action items, detects overdue items, and sends **real email reminders** via Resend on a schedule.
+An AI-powered backend that stores meetings and transcripts, generates **grounded citation-backed insights**, manages action items, and sends **automated email reminders**.
 
-Built for the Hintro Backend/Fullstack Engineering Internship assignment.
+**Live API:** https://meeting-intelligence-service-ce9t.onrender.com  
+**Swagger UI:** https://meeting-intelligence-service-ce9t.onrender.com/docs
 
-- **Stack:** Node + Express + TypeScript · PostgreSQL + Prisma · JWT auth · Google Gemini
-  (structured output) · Zod validation · node-cron · Resend (email) · Swagger/OpenAPI · Vitest
-- **Live URL:** _set after deploy_ → see `GET /api/evaluation`
-- **API docs (Swagger):** `<deployed-url>/docs` · raw spec at `<deployed-url>/openapi.json`
+---
 
-> See **[DECISIONS.md](./DECISIONS.md)** for why each technology was chosen (with alternatives
-> and trade-offs), **[AI_APPROACH.md](./AI_APPROACH.md)** for the grounding/citation strategy,
-> **[TESTING.md](./TESTING.md)**, **[CHANGELOG.md](./CHANGELOG.md)**, and **[CHECKLIST.md](./CHECKLIST.md)**.
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js 20 + TypeScript |
+| Framework | Express |
+| Database | PostgreSQL (Neon) + Prisma ORM |
+| AI | Google Gemini (structured output) |
+| Email | Resend |
+| Validation | Zod + zod-to-openapi |
+| Auth | JWT (HS256) |
+| Testing | Vitest |
+| Deployment | Render (Blueprint) |
 
 ---
 
 ## Features
 
-| Requirement | Where |
-|---|---|
-| JWT Authentication | `POST /api/auth/register`, `/login`, `GET /api/auth/me` |
-| Meeting management (+ pagination & filters) | `POST/GET /api/meetings`, `GET /api/meetings/:id` |
-| AI analysis with citations | `POST /api/meetings/:id/analyze` |
-| Grounding / hallucination prevention | `src/modules/analysis/citationValidator.ts` |
-| Action item management (+ filters) | `POST/GET /api/action-items`, `PATCH /api/action-items/:id/status` |
-| Overdue detection | `GET /api/action-items/overdue` |
-| Scheduled reminder job (3 triggers) | node-cron · `GET /api/internal/cron/reminders` · `POST /api/reminders/run` |
-| Real third-party integration | Resend email (`src/lib/notifier/resend.ts`) |
-| Unified response envelope + trace IDs | `src/utils/response.ts`, `src/middleware/traceId.ts` |
-| Structured logging | `src/middleware/requestLogger.ts` (pino) |
-| Global error handling + validation | `src/middleware/errorHandler.ts`, `validate.ts` (zod) |
-| Health & evaluation endpoints | `GET /health`, `GET /api/evaluation` |
+- JWT authentication (register, login, protected routes)
+- Meeting management with paginated, filterable list
+- AI analysis with grounded, citation-backed insights (summary, decisions, follow-ups, action items)
+- Hallucination prevention via prompt constraints + structured output schema + programmatic citation validator
+- Action item tracking with status updates and overdue detection
+- Scheduled reminder emails via three trigger paths (in-process cron, external scheduler, manual)
+- Unified response envelope with trace IDs on every response
+- Structured JSON logging (pino)
+- OpenAPI/Swagger documentation auto-generated from Zod schemas
 
 ---
 
-## Project structure
+## Project Structure
 
 ```
 src/
-  config/      env (zod-validated), constants
-  lib/         prisma, logger, llm/ (Gemini), notifier/ (Resend)
-  middleware/  traceId, requestLogger, auth, validate, errorHandler, notFound
-  modules/     auth, meetings, analysis, actionItems, reminders, health, evaluation
-  utils/       response envelope, AppError, asyncHandler, pagination
-  openapi/     OpenAPI document builder
-  app.ts       Express assembly (testable)
-  server.ts    bootstrap (listen + scheduler)
-prisma/        schema.prisma, seed.ts
-tests/         Vitest unit tests
+  config/       env validation (Zod), constants
+  lib/          prisma client, logger, llm/, notifier/
+  middleware/   traceId, requestLogger, auth, validate, errorHandler
+  modules/      auth, meetings, analysis, actionItems, reminders, health, evaluation
+  utils/        response envelope, AppError, asyncHandler, pagination
+  openapi/      OpenAPI document builder
+  app.ts        Express app (exported for testing)
+  server.ts     bootstrap — listen + start scheduler
+prisma/         schema.prisma, migrations/, seed.ts
+tests/          Vitest unit tests
 ```
 
 ---
 
-## Environment variables
+## Local Setup
 
-Copy `.env.example` → `.env` and fill in:
+**Prerequisites:** Node >= 20, PostgreSQL (local or [Neon](https://neon.tech) free tier)
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your DATABASE_URL, JWT_SECRET, GEMINI_API_KEY, RESEND_API_KEY
+
+# 3. Run database migrations
+npx prisma migrate dev --name init
+
+# 4. Seed demo data (optional)
+npm run seed
+# Creates demo@hintro.test / Password123 with a sample meeting
+
+# 5. Start development server
+npm run dev
+# Server at http://localhost:8080
+# Swagger UI at http://localhost:8080/docs
+```
+
+**Other scripts:**
+
+```bash
+npm run build        # compile TypeScript
+npm start            # run compiled output
+npm test             # run Vitest unit tests
+npm run prisma:studio  # open Prisma Studio
+```
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in the required values.
 
 | Variable | Required | Description |
 |---|---|---|
-| `PORT` | no | HTTP port (default 8080) |
-| `NODE_ENV` | no | `development` \| `test` \| `production` |
-| `CORS_ORIGIN` | no | `*` (default) or comma-separated origins |
-| `DATABASE_URL` | **yes** | PostgreSQL connection string (e.g. Neon) |
-| `JWT_SECRET` | **yes** | ≥16 chars, used to sign JWTs |
-| `JWT_EXPIRES_IN` | no | e.g. `1d` (default) |
-| `GEMINI_API_KEY` | for analysis | Google AI Studio key (free tier) |
-| `GEMINI_MODEL` | no | default `gemini-2.0-flash` |
+| `DATABASE_URL` | yes | PostgreSQL connection string |
+| `JWT_SECRET` | yes | Secret for signing JWTs (min 16 chars) |
+| `GEMINI_API_KEY` | for analysis | Google AI Studio API key |
 | `RESEND_API_KEY` | for reminders | Resend API key |
-| `RESEND_FROM` | no | sender; default `onboarding@resend.dev` |
-| `REMINDER_TO_OVERRIDE` | no | route all reminder emails to one inbox (demo; see AI_APPROACH) |
-| `REMINDER_CRON` | no | cron expr (default `*/15 * * * *`) |
-| `REMINDER_CRON_ENABLED` | no | enable in-process cron (default true; set false in prod) |
-| `REMINDER_DEDUPE_HOURS` | no | don't re-remind within this window (default 24) |
-| `CRON_SECRET` | for ext. cron | shared secret for `x-cron-secret` header |
-| `CANDIDATE_NAME` / `CANDIDATE_EMAIL` / `REPOSITORY_URL` / `DEPLOYED_URL` | no | `GET /api/evaluation` metadata |
+| `CRON_SECRET` | for ext. scheduler | Shared secret for `x-cron-secret` header |
+| `REMINDER_TO_OVERRIDE` | no | Route all reminder emails to one inbox (free tier workaround) |
+| `PORT` | no | HTTP port (default 8080) |
+| `GEMINI_MODEL` | no | default `gemini-2.0-flash` |
+| `REMINDER_CRON` | no | Cron expression (default `*/15 * * * *`) |
+| `REMINDER_CRON_ENABLED` | no | Enable in-process cron (default `true`, set `false` in prod) |
+| `REMINDER_DEDUPE_HOURS` | no | Re-remind window in hours (default `24`) |
+| `DEPLOYED_URL` | no | Shown in `GET /api/evaluation` |
 
 ---
 
-## Local development
+## API Overview
 
-Prerequisites: Node ≥ 20, a PostgreSQL database (local Docker or a free Neon instance).
-
-```bash
-# 1. Install
-npm install
-
-# 2. Configure
-cp .env.example .env        # then edit values
-
-# 3. Create the schema
-npx prisma migrate dev --name init   # or: npx prisma db push
-
-# 4. (optional) seed a demo user + sample meeting
-npm run seed                # demo@hintro.test / Password123
-
-# 5. Run
-npm run dev                 # http://localhost:8080  (docs at /docs)
-```
-
-Other scripts: `npm run build`, `npm start`, `npm test`, `npm run lint`, `npm run prisma:studio`.
-
----
-
-## API usage examples
-
-```bash
-BASE=http://localhost:8080
-
-# Register (returns { data: { user, token } })
-curl -X POST $BASE/api/auth/register -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"Password123","name":"Me"}'
-
-TOKEN=... # copy data.token from the response
-
-# Create a meeting
-curl -X POST $BASE/api/meetings -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{
-    "title":"Sprint Planning",
-    "participants":["alice@example.com","bob@example.com"],
-    "meetingDate":"2026-05-20T10:00:00Z",
-    "transcript":[
-      {"timestamp":"00:10","speaker":"John","text":"We should launch next Friday."},
-      {"timestamp":"00:20","speaker":"Alice","text":"I will prepare release notes."}
-    ]
-  }'
-
-# Analyze it (grounded insights with citations)
-curl -X POST $BASE/api/meetings/<MEETING_ID>/analyze -H "Authorization: Bearer $TOKEN"
-
-# Action items: filter, update status, overdue
-curl "$BASE/api/action-items?status=PENDING&assignee=Alice" -H "Authorization: Bearer $TOKEN"
-curl -X PATCH $BASE/api/action-items/<ID>/status -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"status":"IN_PROGRESS"}'
-curl $BASE/api/action-items/overdue -H "Authorization: Bearer $TOKEN"
-
-# Trigger reminders manually (sends email + records history)
-curl -X POST $BASE/api/reminders/run -H "Authorization: Bearer $TOKEN"
-```
-
-Every response uses the unified envelope:
+All responses use a unified envelope:
 
 ```json
-{ "traceId": "…", "success": true, "data": { } }
-{ "traceId": "…", "success": false, "error": { "code": "VALIDATION_ERROR", "message": "…" } }
+{ "traceId": "...", "success": true, "data": { } }
+{ "traceId": "...", "success": false, "error": { "code": "...", "message": "..." } }
 ```
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | — | Register a new user |
+| POST | `/api/auth/login` | — | Login, returns JWT |
+| GET | `/api/auth/me` | JWT | Current user |
+| POST | `/api/meetings` | JWT | Create meeting with transcript |
+| GET | `/api/meetings` | JWT | List meetings (paginated, filterable) |
+| GET | `/api/meetings/:id` | JWT | Get meeting by ID |
+| POST | `/api/meetings/:id/analyze` | JWT | Run AI analysis with citations |
+| POST | `/api/action-items` | JWT | Create action item |
+| GET | `/api/action-items` | JWT | List with filters (status, assignee, meetingId) |
+| PATCH | `/api/action-items/:id/status` | JWT | Update status |
+| GET | `/api/action-items/overdue` | JWT | List overdue items |
+| POST | `/api/reminders/run` | JWT | Manually trigger reminder job |
+| GET | `/api/internal/cron/reminders` | Secret | External scheduler trigger |
+| GET | `/health` | — | Health check |
+| GET | `/api/evaluation` | — | Candidate and deployment metadata |
+
+Full interactive docs at `/docs`.
 
 ---
 
 ## Deployment
 
-### Option A — Render Blueprint (recommended)
-1. Push this repo to GitHub.
-2. In Render: **New → Blueprint**, select the repo. `render.yaml` provisions a free web service
-   + free Postgres, runs `prisma migrate deploy`, and sets `JWT_SECRET`/`CRON_SECRET` automatically.
-3. Add the secret env vars in the dashboard: `GEMINI_API_KEY`, `RESEND_API_KEY`,
-   `REMINDER_TO_OVERRIDE` (optional), and the `CANDIDATE_*` / `REPOSITORY_URL` / `DEPLOYED_URL`.
-4. Verify `https://<app>.onrender.com/health` and `/docs`.
+### Render Blueprint (one-click)
 
-### Option B — Docker
+1. Push repo to GitHub
+2. In Render: **New → Blueprint** → select repo
+3. `render.yaml` provisions a free web service + Postgres automatically
+4. Add secrets in the Render dashboard: `GEMINI_API_KEY`, `RESEND_API_KEY`, `REMINDER_TO_OVERRIDE`, `CANDIDATE_*`, `DEPLOYED_URL`
+5. Verify `/health` and `/docs` on the deployed URL
+
+### Docker
+
 ```bash
 docker build -t meeting-intelligence-service .
 docker run -p 8080:8080 --env-file .env meeting-intelligence-service
 ```
 
-### Scheduler in production
-The free Render dyno may idle, so the in-process cron is disabled in `render.yaml`
-(`REMINDER_CRON_ENABLED=false`). Instead, the included GitHub Action
-(`.github/workflows/reminders-cron.yml`) hits `GET /api/internal/cron/reminders` every 15 minutes
-with the `x-cron-secret` header — waking the dyno and running the job. Set repo secrets
-`DEPLOYED_URL` and `CRON_SECRET`. (Any external scheduler such as cron-job.org works too.)
+### External Scheduler (production)
+
+Free Render dynos idle after 15 minutes of inactivity, stopping the in-process cron. The included GitHub Actions workflow (`.github/workflows/reminders-cron.yml`) hits `GET /api/internal/cron/reminders` every 15 minutes — waking the dyno and running the reminder job.
+
+Set two repository secrets: `DEPLOYED_URL` and `CRON_SECRET`.
 
 ---
 
-## Notes on free-tier email
-Resend's free tier (without a verified domain) reliably delivers only to the account owner's
-address. For demos, set `REMINDER_TO_OVERRIDE` to that verified inbox to route all reminders
-there. See [AI_APPROACH.md](./AI_APPROACH.md) and [DECISIONS.md](./DECISIONS.md) (D8).
+## Documentation
+
+| File | Contents |
+|---|---|
+| [DECISIONS.md](./DECISIONS.md) | 12 architecture decisions with alternatives and trade-offs |
+| [AI_APPROACH.md](./AI_APPROACH.md) | Grounding and hallucination prevention strategy |
+| [TESTING.md](./TESTING.md) | Test scenarios and edge cases |
+| [CHANGELOG.md](./CHANGELOG.md) | Build milestones |
+| [CHECKLIST.md](./CHECKLIST.md) | Assignment requirements checklist |

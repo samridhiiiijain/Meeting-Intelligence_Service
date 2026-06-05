@@ -39,7 +39,7 @@ All notable implementation milestones for the Meeting Intelligence Service.
 - `GET /api/evaluation` metadata endpoint.
 - Vitest unit suites (39 tests) covering grounding, recipient resolution, overdue, envelope,
   validation, pagination, and JWT.
-- Documentation: README, DECISIONS, AI_APPROACH, TESTING, CHECKLIST.
+- Documentation: README.md, DECISIONS.md, AI_APPROACH.md, TESTING.md, CHECKLIST.md,CHANGELOG.md.
 
 ### Deployment / bonus
 - Dockerfile (multi-stage) + `.dockerignore`.

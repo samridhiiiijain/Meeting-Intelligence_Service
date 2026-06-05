@@ -2,8 +2,8 @@
 
 ## Core Requirements
 
-- [ ] Public GitHub repository submitted
-- [ ] Application deployed and accessible publicly
+- [x] Public GitHub repository submitted
+- [x] Application deployed and accessible publicly
 - [x] README contains setup and run instructions
 
 - [x] Authentication implemented

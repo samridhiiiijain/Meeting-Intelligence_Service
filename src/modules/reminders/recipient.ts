@@ -1,6 +1,9 @@
 import { env } from '../../config/env';
 import type { ReminderMessage } from '../../lib/notifier';
 
+// Intentionally lenient — matches anything that looks like an email address.
+// Strict RFC validation happens at the API boundary (auth.schemas.ts); here we
+// just need to distinguish "Alice" (name) from "alice@example.com" (address).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface ResolvableItem {

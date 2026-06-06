@@ -20,6 +20,106 @@ extendZodWithOpenApi(z);
 
 const registry = new OpenAPIRegistry();
 
+// ---- Reusable response shapes ----
+
+const userSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+const authResponseSchema = z.object({
+  user: userSchema,
+  token: z.string(),
+});
+
+const transcriptSegmentSchema = z.object({
+  timestamp: z.string(),
+  speaker: z.string(),
+  text: z.string(),
+});
+
+const meetingSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  participants: z.array(z.string()),
+  meetingDate: z.string().datetime(),
+  transcript: z.array(transcriptSegmentSchema),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+const meetingListItemSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  participants: z.array(z.string()),
+  meetingDate: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  _count: z.object({ actionItems: z.number() }),
+});
+
+const paginatedSchema = (itemSchema: z.ZodTypeAny) =>
+  z.object({
+    items: z.array(itemSchema),
+    meta: z.object({
+      page: z.number(),
+      limit: z.number(),
+      total: z.number(),
+      totalPages: z.number(),
+    }),
+  });
+
+const citationSchema = z.object({ timestamp: z.string() });
+
+const analysisResponseSchema = z.object({
+  meetingId: z.string().uuid(),
+  model: z.string(),
+  summary:     z.array(z.object({ text: z.string(), citations: z.array(citationSchema) })),
+  actionItems: z.array(z.object({ task: z.string(), assignee: z.string().nullable(), dueDate: z.string().nullable(), citations: z.array(citationSchema) })),
+  decisions:   z.array(z.object({ text: z.string(), citations: z.array(citationSchema) })),
+  followUps:   z.array(z.object({ text: z.string(), citations: z.array(citationSchema) })),
+  grounding: z.object({
+    totalItems: z.number(),
+    keptItems: z.number(),
+    droppedItems: z.number(),
+    removedCitations: z.number(),
+    flaggedAssignees: z.number(),
+  }),
+});
+
+const actionItemSchema = z.object({
+  id: z.string().uuid(),
+  meetingId: z.string().uuid().nullable(),
+  userId: z.string().uuid(),
+  task: z.string(),
+  assignee: z.string().nullable(),
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']),
+  dueDate: z.string().datetime().nullable(),
+  source: z.enum(['AI', 'MANUAL']),
+  citations: z.array(citationSchema),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+const reminderRunSchema = z.object({
+  sent: z.number(),
+  skipped: z.number(),
+  failed: z.number(),
+});
+
+const reminderHistoryItemSchema = z.object({
+  id: z.string().uuid(),
+  actionItemId: z.string().uuid(),
+  channel: z.string(),
+  recipient: z.string(),
+  status: z.enum(['SENT', 'FAILED']),
+  message: z.string(),
+  error: z.string().nullable(),
+  sentAt: z.string().datetime(),
+});
+
 const bearerAuth = registry.registerComponent('securitySchemes', 'bearerAuth', {
   type: 'http',
   scheme: 'bearer',
@@ -63,7 +163,7 @@ registry.registerPath({
   tags: ['Auth'],
   summary: 'Register a new user and receive a JWT',
   request: { body: jsonBody(registerSchema) },
-  responses: { 201: jsonResponse('Created', success(z.any())), ...errorResponses },
+  responses: { 201: jsonResponse('Created', success(authResponseSchema)), ...errorResponses },
 });
 registry.registerPath({
   method: 'post',
@@ -71,7 +171,7 @@ registry.registerPath({
   tags: ['Auth'],
   summary: 'Log in and receive a JWT',
   request: { body: jsonBody(loginSchema) },
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(authResponseSchema)), ...errorResponses },
 });
 registry.registerPath({
   method: 'get',
@@ -79,7 +179,7 @@ registry.registerPath({
   tags: ['Auth'],
   summary: 'Get the currently authenticated user',
   security: secured,
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(userSchema)), ...errorResponses },
 });
 
 // ---- Meetings ----
@@ -90,7 +190,7 @@ registry.registerPath({
   summary: 'Create a meeting with transcript',
   security: secured,
   request: { body: jsonBody(createMeetingSchema) },
-  responses: { 201: jsonResponse('Created', success(z.any())), ...errorResponses },
+  responses: { 201: jsonResponse('Created', success(meetingSchema)), ...errorResponses },
 });
 registry.registerPath({
   method: 'get',
@@ -99,7 +199,7 @@ registry.registerPath({
   summary: 'List meetings (paginated, filterable)',
   security: secured,
   request: { query: listMeetingsQuerySchema },
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(paginatedSchema(meetingListItemSchema))), ...errorResponses },
 });
 registry.registerPath({
   method: 'get',
@@ -108,7 +208,7 @@ registry.registerPath({
   summary: 'Get a meeting by id',
   security: secured,
   request: { params: z.object({ id: z.string().uuid() }) },
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(meetingSchema)), ...errorResponses },
 });
 registry.registerPath({
   method: 'post',
@@ -117,7 +217,7 @@ registry.registerPath({
   summary: 'Generate grounded, citation-backed insights for a meeting',
   security: secured,
   request: { params: z.object({ id: z.string().uuid() }) },
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(analysisResponseSchema)), ...errorResponses },
 });
 
 // ---- Action items ----
@@ -128,7 +228,7 @@ registry.registerPath({
   summary: 'Create an action item',
   security: secured,
   request: { body: jsonBody(createActionItemSchema) },
-  responses: { 201: jsonResponse('Created', success(z.any())), ...errorResponses },
+  responses: { 201: jsonResponse('Created', success(actionItemSchema)), ...errorResponses },
 });
 registry.registerPath({
   method: 'get',
@@ -137,7 +237,7 @@ registry.registerPath({
   summary: 'List action items (filter by status/assignee/meetingId)',
   security: secured,
   request: { query: listActionItemsQuerySchema },
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(paginatedSchema(actionItemSchema))), ...errorResponses },
 });
 registry.registerPath({
   method: 'get',
@@ -145,7 +245,7 @@ registry.registerPath({
   tags: ['Action Items'],
   summary: 'List overdue action items',
   security: secured,
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(paginatedSchema(actionItemSchema))), ...errorResponses },
 });
 registry.registerPath({
   method: 'patch',
@@ -157,7 +257,7 @@ registry.registerPath({
     params: z.object({ id: z.string().uuid() }),
     body: jsonBody(updateStatusSchema),
   },
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(actionItemSchema)), ...errorResponses },
 });
 
 // ---- Reminders ----
@@ -167,7 +267,7 @@ registry.registerPath({
   tags: ['Reminders'],
   summary: 'Manually trigger the reminder job (demo)',
   security: secured,
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(reminderRunSchema)), ...errorResponses },
 });
 registry.registerPath({
   method: 'get',
@@ -175,7 +275,7 @@ registry.registerPath({
   tags: ['Reminders'],
   summary: 'Recent reminder send history',
   security: secured,
-  responses: { 200: jsonResponse('OK', success(z.any())), ...errorResponses },
+  responses: { 200: jsonResponse('OK', success(paginatedSchema(reminderHistoryItemSchema))), ...errorResponses },
 });
 registry.registerPath({
   method: 'get',
@@ -185,7 +285,11 @@ registry.registerPath({
   request: {
     headers: z.object({ 'x-cron-secret': z.string() }),
   },
-  responses: { 200: jsonResponse('OK', success(z.any())), 401: errorResponses[401] },
+  responses: {
+    200: jsonResponse('OK', success(reminderRunSchema)),
+    401: errorResponses[401],
+    500: jsonResponse('Internal error', errorEnvelope),
+  },
 });
 
 // ---- Platform ----
@@ -201,7 +305,16 @@ registry.registerPath({
   path: '/api/evaluation',
   tags: ['Platform'],
   summary: 'Evaluation metadata',
-  responses: { 200: jsonResponse('OK', z.any()) },
+  responses: {
+    200: jsonResponse('OK', z.object({
+      candidateName: z.string(),
+      candidateEmail: z.string(),
+      repositoryUrl: z.string(),
+      deployedUrl: z.string(),
+      externalIntegration: z.string(),
+      features: z.array(z.string()),
+    })),
+  },
 });
 
 /** Build the OpenAPI 3.0 document consumed by Swagger UI and /openapi.json. */

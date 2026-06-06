@@ -4,6 +4,10 @@ import { AppError } from '../../utils/errors';
 import { buildPageMeta, parsePagination, type PageMeta } from '../../utils/pagination';
 import type { CreateMeetingInput, ListMeetingsQuery, TranscriptSegment } from './meetings.schemas';
 
+// Prisma requires InputJsonValue for Json columns. Safe cast — transcript is a
+// validated array of { timestamp, speaker, text } objects.
+const toJson = (v: unknown): Prisma.InputJsonValue => v as Prisma.InputJsonValue;
+
 export const meetingsService = {
   async create(userId: string, input: CreateMeetingInput) {
     return prisma.meeting.create({
@@ -12,7 +16,7 @@ export const meetingsService = {
         title: input.title,
         participants: input.participants,
         meetingDate: new Date(input.meetingDate),
-        transcript: input.transcript as unknown as Prisma.InputJsonValue,
+        transcript: toJson(input.transcript),
       },
     });
   },

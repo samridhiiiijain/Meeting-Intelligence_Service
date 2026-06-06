@@ -5,6 +5,10 @@ import { AppError } from '../../utils/errors';
 import { meetingsService } from '../meetings/meetings.service';
 import { validateGrounding, type GroundedAnalysis } from './citationValidator';
 
+// Prisma requires InputJsonValue for Json columns. This cast is safe because
+// the values are plain serialisable objects validated by the citation validator.
+const toJson = (v: unknown): Prisma.InputJsonValue => v as Prisma.InputJsonValue;
+
 export const analysisService = {
   /**
    * Analyze a meeting transcript end-to-end:
@@ -46,11 +50,12 @@ export const analysisService = {
 
   /** Upsert the Analysis row and rebuild AI-sourced action items idempotently. */
   async persist(meetingId: string, userId: string, grounded: GroundedAnalysis, model: string) {
-    const summary = grounded.summary as unknown as Prisma.InputJsonValue;
-    const decisions = grounded.decisions as unknown as Prisma.InputJsonValue;
-    const followUps = grounded.followUps as unknown as Prisma.InputJsonValue;
+    const summary   = toJson(grounded.summary);
+    const decisions = toJson(grounded.decisions);
+    const followUps = toJson(grounded.followUps);
 
     await prisma.$transaction(async (tx) => {
+      // createdAt is updated on re-analysis so the timestamp reflects the latest run.
       await tx.analysis.upsert({
         where: { meetingId },
         create: { meetingId, summary, decisions, followUps, model },
@@ -68,7 +73,7 @@ export const analysisService = {
             task: ai.task,
             assignee: ai.assignee,
             source: 'AI' as const,
-            citations: ai.citations as unknown as Prisma.InputJsonValue,
+            citations: toJson(ai.citations),
           })),
         });
       }

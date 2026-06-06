@@ -2,65 +2,95 @@
 
 ## Strategy
 
-Tests focus on the **logic that matters and is deterministic** — grounding/citation validation,
-recipient resolution, overdue detection, the response envelope/error model, validation schemas,
-pagination, and JWT signing. These are pure or near-pure functions, so they're fast, reliable, and
-don't require a live database or external API. External effects (Gemini, Resend, Prisma) sit behind
-interfaces with injectable test seams (`setLLMProvider`, `setNotifier`), so they can be mocked in
-future integration tests without touching the network.
+Tests focus on logic that is deterministic and doesn't require a live database or external API — grounding/citation validation, recipient resolution, overdue detection, response envelope, validation schemas, pagination, and JWT signing. External effects (Gemini, Resend, Prisma) sit behind interfaces with injectable test seams so they can be mocked in future integration tests without touching the network.
 
-Run: `npm test` (Vitest). Config in `vitest.config.ts` injects a minimal test env.
+Run all tests: `npm test` (Vitest, 39 tests across 7 files)
 
-## Test suites (39 tests, all passing)
+---
 
-| File | What it verifies |
-|---|---|
-| `tests/citationValidator.test.ts` | Keeps valid citations; **drops insights with non-existent timestamps**; strips only the bad citations from mixed items; **nulls invented assignees**; accepts assignee matching a participant local-part; handles empty input. |
-| `tests/recipient.test.ts` | Assignee-as-email passthrough; **name→participant email mapping**; null when unresolved; reminder message formatting matches the assignment example (`Reminder/Assigned To/Due Date`), with `Unassigned`/`N/A` fallbacks. |
-| `tests/overdue.test.ts` | `overdueWhere` excludes `COMPLETED` and requires a past due date; defaults `now` to current time. |
-| `tests/response.test.ts` | Success/error envelope builders; `AppError` code→HTTP-status mapping; operational flag + details. |
-| `tests/validation.test.ts` | Meeting schema accepts valid payload; rejects bad email, missing title, empty transcript, malformed timestamp, non-ISO date; status enum; action-item rules; password length. |
-| `tests/pagination.test.ts` | Defaults, skip computation, non-numeric fallback, clamping to min/max bounds. |
-| `tests/auth.test.ts` | JWT sign/verify round-trip; verification fails under the wrong secret. |
+## Test Suites
 
-## Edge cases considered
+**`citationValidator.test.ts`**
+- Keeps citations that reference real transcript timestamps
+- Drops entire insights when all citations are invalid
+- Strips only the bad citations from mixed valid/invalid items
+- Nulls out assignees that don't match any known speaker or participant
+- Handles empty input gracefully
 
-- **Grounding:** hallucinated timestamps, mixed valid/invalid citations, invented assignees,
-  empty/missing arrays, assignee matched by name vs. email local-part.
-- **Overdue boundaries:** completed items excluded; null due dates excluded; due date strictly in
-  the past.
-- **Input validation:** invalid emails, missing required fields, invalid status values, invalid/
-  non-ISO dates, malformed JSON body, malformed timestamps.
-- **Auth:** missing/malformed `Authorization` header, invalid/expired/wrong-secret tokens.
-- **Pagination:** non-numeric, negative, and oversized inputs.
-- **Reminders:** unresolved recipient → `FAILED` row, dedupe within window, one failed send not
-  aborting the batch.
+**`recipient.test.ts`**
+- Passes through an assignee that is already a valid email
+- Maps an assignee name to a participant email by local-part match (e.g. "Alice" → "alice@example.com")
+- Returns null when no address can be resolved
+- Formats reminder email with correct subject, body, and fallbacks (`Unassigned`, `N/A`)
 
-## Manual / smoke verification (no DB required)
+**`overdue.test.ts`**
+- Excludes `COMPLETED` items from the overdue query
+- Excludes items with no due date
+- Only includes items with a due date strictly in the past
 
-Booting the app and hitting the platform routes confirms the cross-cutting layer:
+**`response.test.ts`**
+- `ok()` always produces `success: true` with correct envelope shape
+- `fail()` always produces `success: false` with error code and message
+- `AppError` maps to the correct HTTP status and error code
 
-- `GET /health` → `{ "status": "UP" }`
-- `GET /api/evaluation` → candidate/integration/features metadata
-- `GET /openapi.json` → 14 documented paths; Swagger UI at `/docs`
-- `GET /api/nope` → `NOT_FOUND` envelope
-- `POST /api/auth/register {"email":"bad"}` → `VALIDATION_ERROR` envelope with field details
-- `GET /api/meetings` without a token → `UNAUTHORIZED` envelope
-- every response carries an `x-trace-id` header and a `traceId` in the body
+**`validation.test.ts`**
+- Meeting schema accepts a valid payload
+- Rejects bad email, missing title, empty transcript, malformed timestamp, non-ISO date
+- Status enum rejects unknown values
+- Action item rules and password length enforced
 
-## Full end-to-end (with a database)
+**`pagination.test.ts`**
+- Defaults to page 1, limit 10
+- Computes skip correctly
+- Falls back to defaults on non-numeric input
+- Clamps to min/max bounds
 
-With `DATABASE_URL` set and `npx prisma migrate dev` applied:
-1. register → login → use the token
-2. create a meeting (assignment sample payload)
-3. analyze → confirm every insight has valid citations and no invented assignees
-4. filter action items by status/assignee/meetingId
-5. create an item with a past due date → it appears in `/overdue`
-6. `POST /api/reminders/run` → email sent + `Reminder` row recorded; `GET /api/internal/cron/reminders`
-   with the correct `x-cron-secret` runs the same job; a wrong secret returns 401
+**`auth.test.ts`**
+- JWT sign/verify round-trip succeeds
+- Verification fails with the wrong secret
 
-## Limitations discovered
+---
 
-- Integration tests against a real Postgres/Resend/Gemini are not included (kept as a bonus); the
-  injectable seams make them straightforward to add.
-- The grounding validator is intentionally conservative (see AI_APPROACH "Known limitations").
+## Edge Cases Covered
+
+- Hallucinated timestamps, mixed valid/invalid citations, invented assignees
+- Completed items and null due dates excluded from overdue
+- Invalid emails, missing required fields, invalid status values, malformed dates
+- Non-numeric, negative, and oversized pagination inputs
+- Unresolved reminder recipient records a `FAILED` row without crashing the batch
+
+---
+
+## Manual Smoke Tests
+
+Without a database:
+
+```
+GET  /health                              → { "status": "UP" }
+GET  /api/evaluation                      → candidate metadata
+GET  /docs                                → Swagger UI
+GET  /api/nope                            → NOT_FOUND envelope
+POST /api/auth/register  { email:"bad" }  → VALIDATION_ERROR with field details
+GET  /api/meetings  (no token)            → UNAUTHORIZED envelope
+```
+
+Every response includes an `x-trace-id` header and `traceId` in the body.
+
+---
+
+## End-to-End (with database)
+
+1. Register → login → copy JWT
+2. Create a meeting with a transcript
+3. Analyze → verify every insight has valid citations, no invented assignees
+4. Filter action items by status / assignee / meetingId
+5. Create an item with a past due date → appears in `/overdue`
+6. `POST /api/reminders/run` → email sent, `Reminder` row recorded
+7. `GET /api/internal/cron/reminders` with correct secret → runs job; wrong secret → 401
+
+---
+
+## Limitations
+
+- Integration tests against real Postgres/Resend/Gemini are not included — kept as a bonus milestone. The injectable seams make them straightforward to add.
+- The citation validator is intentionally conservative — see AI_APPROACH.md.

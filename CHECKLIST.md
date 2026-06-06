@@ -31,5 +31,5 @@
 - [x] Docker support
 - [x] CI/CD pipeline (GitHub Actions)
 - [ ] Redis caching
-- [ ] Rate limiting
+- [x] Rate limiting
 - [ ] Integration tests

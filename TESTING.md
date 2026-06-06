@@ -4,7 +4,7 @@
 
 Tests focus on logic that is deterministic and doesn't require a live database or external API — grounding/citation validation, recipient resolution, overdue detection, response envelope, validation schemas, pagination, and JWT signing. External effects (Gemini, Resend, Prisma) sit behind interfaces with injectable test seams so they can be mocked in future integration tests without touching the network.
 
-Run all tests: `npm test` (Vitest, 39 tests across 7 files)
+Run all tests: `npm test` (Vitest, 45 tests across 8 files)
 
 ---
 
@@ -49,6 +49,14 @@ Run all tests: `npm test` (Vitest, 39 tests across 7 files)
 - JWT sign/verify round-trip succeeds
 - Verification fails with the wrong secret
 
+**`reminders.service.test.ts`**
+- Sends reminder and records `SENT` for a resolvable overdue item
+- Skips items already reminded within the dedup window
+- Records `FAILED` and increments `unresolved` when recipient can't be resolved
+- Records `FAILED` and increments `failed` when notifier throws
+- One failed send does not abort the rest of the batch
+- Returns correct `scanned`, `sent`, `skipped`, `failed` counts
+
 ---
 
 ## Edge Cases Covered
@@ -92,5 +100,5 @@ Every response includes an `x-trace-id` header and `traceId` in the body.
 
 ## Limitations
 
-- Integration tests against real Postgres/Resend/Gemini are not included — kept as a bonus milestone. The injectable seams make them straightforward to add.
-- The citation validator is intentionally conservative — see AI_APPROACH.md.
+- Integration tests (Postgres/Resend/Gemini) not included. Injectable seams exist to add them.
+- Citation validator is intentionally conservative — see AI_APPROACH.md.

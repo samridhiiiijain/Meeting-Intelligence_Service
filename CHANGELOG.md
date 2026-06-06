@@ -18,20 +18,13 @@ All notable implementation milestones for the Meeting Intelligence Service.
 - Singleton Prisma client; seed script (demo user + sample meeting + overdue item).
 
 ### Features
-- **Auth (FR1):** register/login/me, bcrypt hashing, JWT issuance + guard.
-- **Meetings (FR2):** create/get/list with pagination, title search, and date-range filters;
-  per-user ownership.
-- **AI analysis (FR3/FR4):** Gemini provider with structured output; strict grounding prompt;
-  `citationValidator` enforcing citations and pruning invented attendees; Analysis persistence and
-  idempotent AI action-item sync.
-- **Action items (FR5):** create, status update (PENDING/IN_PROGRESS/COMPLETED), list with
-  status/assignee/meetingId filters.
-- **Overdue detection (FR6):** shared `overdueWhere` query + `GET /api/action-items/overdue`.
-- **Scheduled reminders (FR7):** single `reminderService.run()` with three triggers — node-cron,
-  secret-guarded `GET /api/internal/cron/reminders`, and manual `POST /api/reminders/run`; reminder
-  history with dedupe window.
-- **External integration (FR8):** Resend email notifier behind a `Notifier` interface; assignee→
-  email recipient resolution; reminder email matching the assignment's format.
+- **Authentication:** register/login/me, bcrypt hashing, JWT issuance + guard.
+- **Meetings:** create/get/list with pagination, title search, and date-range filters; per-user ownership.
+- **AI Analysis:** Gemini provider with structured output; strict grounding prompt; `citationValidator` enforcing citations and pruning invented attendees; Analysis persistence and idempotent AI action-item sync.
+- **Action Items:** create, status update (PENDING/IN_PROGRESS/COMPLETED), list with status/assignee/meetingId filters.
+- **Overdue Detection:** shared `overdueWhere` query + `GET /api/action-items/overdue`.
+- **Scheduled Reminders:** single `reminderService.run()` with three triggers — node-cron, secret-guarded `GET /api/internal/cron/reminders`, and manual `POST /api/reminders/run`; paginated reminder history with dedupe window.
+- **External Integration:** Resend email notifier behind a `Notifier` interface; assignee→email recipient resolution; reminder email matching the assignment's format.
 
 ### Non-functional & docs
 - Zod validation middleware with field-level error details.

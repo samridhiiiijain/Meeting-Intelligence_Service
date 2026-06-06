@@ -4,6 +4,8 @@ import { prisma } from '../../lib/prisma';
 import { logger } from '../../lib/logger';
 import { overdueWhere } from '../actionItems/actionItems.service';
 import { buildReminderMessage, resolveRecipient } from './recipient';
+import { buildPageMeta, parsePagination } from '../../utils/pagination';
+import type { PageMeta } from '../../utils/pagination';
 
 export interface ReminderRunResult {
   triggeredBy: string;
@@ -101,13 +103,25 @@ export const remindersService = {
     });
   },
 
-  /** Reminder history for the authenticated user's action items. */
-  async history(userId: string, limit = 50) {
-    return prisma.reminder.findMany({
-      where: { actionItem: { userId } },
-      orderBy: { sentAt: 'desc' },
-      take: limit,
-      include: { actionItem: { select: { id: true, task: true, assignee: true } } },
-    });
+  /** Paginated reminder history for the authenticated user's action items. */
+  async history(
+    userId: string,
+    query: { page?: number; limit?: number } = {},
+  ): Promise<{ items: unknown[]; meta: PageMeta }> {
+    const pagination = parsePagination(query);
+    const where = { actionItem: { userId } };
+
+    const [items, total] = await Promise.all([
+      prisma.reminder.findMany({
+        where,
+        orderBy: { sentAt: 'desc' },
+        skip: pagination.skip,
+        take: pagination.limit,
+        include: { actionItem: { select: { id: true, task: true, assignee: true } } },
+      }),
+      prisma.reminder.count({ where }),
+    ]);
+
+    return { items, meta: buildPageMeta(total, pagination) };
   },
 };

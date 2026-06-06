@@ -22,7 +22,9 @@ Node.js 20 + TypeScript · Express · PostgreSQL + Prisma · Google Gemini · Re
 - Action item tracking with status updates and overdue detection
 - Scheduled reminder emails via three triggers — in-process cron, external scheduler, manual endpoint
 - Unified response envelope with trace IDs on every response
+- Structured JSON logging with per-request trace ID correlation (pino)
 - OpenAPI/Swagger docs auto-generated from Zod schemas
+- Production-ready: health check, evaluation endpoint, Docker support, GitHub Actions CI/CD
 
 ---
 

@@ -33,5 +33,3 @@
 - [ ] Redis caching
 - [ ] Rate limiting
 - [ ] Integration tests
-
-

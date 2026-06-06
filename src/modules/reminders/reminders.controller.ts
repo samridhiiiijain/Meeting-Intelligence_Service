@@ -12,10 +12,13 @@ export const remindersController = {
     ok(res, result);
   },
 
-  /** Recent reminder history for the authenticated user. */
+  /** Paginated reminder history for the authenticated user. */
   async history(req: Request, res: Response) {
-    const items = await remindersService.history(req.user!.id);
-    ok(res, items);
+    const result = await remindersService.history(req.user!.id, {
+      page: req.query.page ? Number(req.query.page) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    });
+    ok(res, result);
   },
 
   /**

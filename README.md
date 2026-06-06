@@ -1,6 +1,20 @@
 # Meeting Intelligence Service
 
-An AI-powered backend that stores meetings and transcripts, generates **grounded citation-backed insights**, manages action items, and sends **automated email reminders**.
+## The Problem
+
+After every meeting, three things consistently fall through the cracks — no one writes down what was decided, action items get forgotten, and there's no follow-up when deadlines are missed.
+
+Most teams either rely on someone manually taking notes (unreliable) or use expensive SaaS tools that lock data behind proprietary systems.
+
+## What This Solves
+
+A backend service that takes a raw meeting transcript and does the heavy lifting automatically:
+
+- **Extracts insights** — summary, decisions, follow-ups, and action items directly from what was said, with every insight citing the exact transcript segment it came from
+- **Tracks action items** — who owns what, by when, and what the current status is
+- **Sends reminders** — automatically emails assignees when their tasks are overdue, on a schedule
+
+The key design principle: every AI-generated insight is **grounded** — it must cite a real timestamp from the transcript. Nothing is invented. If the AI can't back it up, it gets dropped.
 
 **Live API:** https://meeting-intelligence-service-ce9t.onrender.com  
 **Swagger UI:** https://meeting-intelligence-service-ce9t.onrender.com/docs

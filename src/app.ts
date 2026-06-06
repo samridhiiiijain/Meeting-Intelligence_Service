@@ -6,6 +6,7 @@ import { traceId } from './middleware/traceId';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import { apiLimiter, authLimiter } from './middleware/rateLimiter';
 import { buildOpenApiDocument } from './openapi/document';
 import { authRouter } from './modules/auth/auth.routes';
 import { meetingsRouter } from './modules/meetings/meetings.routes';
@@ -37,10 +38,10 @@ export function createApp(): Express {
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument, { explorer: true }));
 
   // Feature routers.
-  app.use('/api/auth', authRouter);
-  app.use('/api/meetings', meetingsRouter);
-  app.use('/api/action-items', actionItemsRouter);
-  app.use('/api/reminders', remindersRouter);
+  app.use('/api/auth', authLimiter, authRouter);
+  app.use('/api/meetings', apiLimiter, meetingsRouter);
+  app.use('/api/action-items', apiLimiter, actionItemsRouter);
+  app.use('/api/reminders', apiLimiter, remindersRouter);
   app.use('/api/internal/cron', internalCronRouter);
 
   // 404 + centralized error handler (registered last).

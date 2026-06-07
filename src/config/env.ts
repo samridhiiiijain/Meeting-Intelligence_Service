@@ -26,7 +26,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('1d'),
 
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
 
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM: z.string().default('Hintro Reminders <onboarding@resend.dev>'),

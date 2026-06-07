@@ -100,7 +100,7 @@ Copy `.env.example` to `.env` and fill in the values below.
 
 **For AI analysis**
 - `GEMINI_API_KEY` — Google AI Studio API key
-- `GEMINI_MODEL` — model name (default `gemini-2.0-flash`)
+- `GEMINI_MODEL` — model name (default `gemini-2.5-flash`)
 
 **For reminders**
 - `RESEND_API_KEY` — Resend API key

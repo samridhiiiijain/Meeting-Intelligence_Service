@@ -70,7 +70,7 @@
 
 ## 6. LLM Provider — Google Gemini
 
-**Choice:** Gemini (`gemini-2.0-flash`) behind a `LLMProvider` interface.
+**Choice:** Gemini (`gemini-2.5-flash`) behind a `LLMProvider` interface.
 
 **Why chosen:** The free tier requires no credit card, which keeps the project runnable without cost. More importantly, Gemini supports native structured output via `responseSchema` — the exact JSON shape, including required citation fields, is enforced at the API level rather than parsed from free text. The provider interface means swapping to a different LLM is a single-file change.
 
@@ -78,7 +78,7 @@
 - OpenAI — excellent structured output support, but requires paid credits.
 - Anthropic Claude — strong instruction-following, also requires paid credits.
 
-**Trade-off:** The free tier has rate limits. Mitigated by using low temperature, a strict prompt, and a programmatic citation validator as an additional safeguard.
+**Trade-off:** The free tier has rate limits — 5 requests/min, 20 requests/day, 250K tokens/min. Mitigated by using low temperature, a strict prompt, and a programmatic citation validator as an additional safeguard.
 
 ---
 

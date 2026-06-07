@@ -100,6 +100,7 @@ Every response includes an `x-trace-id` header and `traceId` in the body.
 
 ## Limitations Discovered
 
+- Gemini 2.5 Flash free tier is limited to 5 requests/min and 20 requests/day. If `/analyze` returns a 502, wait 30 seconds and retry. The daily limit resets every 24 hours.
 - Gemini sometimes paraphrases rather than directly quoting a segment — the citation timestamp is valid, but the link is looser than ideal.
 - Assignee-to-email resolution breaks if two participants share the same first name or the transcript name doesn't match the email prefix.
 - The in-process `node-cron` timer stops when the Render free-tier dyno idles. Mitigated by the GitHub Actions external trigger, but a short gap can exist.

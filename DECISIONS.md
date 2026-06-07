@@ -1,263 +1,162 @@
 # Technical Decisions
 
-## D1. Runtime & Framework — Express + TypeScript
+## 1. Runtime & Framework — Express + TypeScript
 
-**Choice:** Node.js with Express and TypeScript.
+**Choice:** Node.js + Express + TypeScript.
 
-**Why chosen:** Express is minimal and universally understood, so a reviewer can follow a request
-top-to-bottom without learning a framework. Writing the cross-cutting concerns by hand (unified
-envelope, trace-id middleware, global error handler) is exactly what the assignment grades, and
-Express keeps them explicit and visible. TypeScript adds compile-time safety and self-documenting
-types, signalling code quality.
+**Why chosen:** Express is a lightweight, well-understood framework that keeps the request lifecycle explicit. Cross-cutting concerns like unified response envelopes, trace IDs, and global error handling are written directly as middleware, which makes them visible and straightforward. A heavier framework would abstract those layers away through its own conventions.
 
 **Alternatives considered:**
-- **NestJS** — *Pros:* opinionated structure, DI, built-in guards/pipes/filters, native Swagger.
-  *Cons:* heavy boilerplate and a learning curve that is overkill for a 6–10h task; hides the very
-  mechanics being evaluated.
-- **Fastify** — *Pros:* faster, schema-first validation + Swagger built in. *Cons:* fewer reference
-  examples; schema-first is less flexible for a custom response envelope.
-- **Python + FastAPI** — *Pros:* auto OpenAPI, Pydantic, great for AI. *Cons:* changes ecosystem;
-  no advantage that outweighs staying in one TypeScript codebase.
+- NestJS — structured and feature-rich, but its decorator-based abstractions add overhead that isn't needed at this scale and obscures the middleware patterns being graded.
+- FastAPI (Python) — well-suited for AI services, but mixing Python and TypeScript for a single service would add unnecessary complexity.
 
-**Trade-offs:** Express gives no structure for free — I impose it via a consistent
-`routes → controller → service` module layout and shared middleware. That discipline is manual,
-but it keeps the dependency surface and cognitive load small.
+**Trade-off:** Express provides no enforced structure, so the `routes → controller → service` layout is maintained manually per module.
 
 ---
 
-## D2. Language — TypeScript (over plain JavaScript)
+## 2. Language — TypeScript
 
-**Choice:** TypeScript in `strict` mode.
+**Choice:** TypeScript in strict mode.
 
-**Why chosen:** Static types catch errors before runtime, make refactors safe, and document the
-shape of meetings/transcripts/analysis without extra prose. Combined with Zod (D10), one schema
-yields both runtime validation and a static type.
-
-**Alternatives considered:** **Plain JS** — *Pros:* zero build step. *Cons:* no type safety, more
-runtime bugs, weaker editor support.
-
-**Trade-offs:** Adds a build step (`tsc`) and `tsx` for dev. Worth it for correctness and clarity.
-
----
-
-## D3. Database — PostgreSQL
-
-**Choice:** PostgreSQL.
-
-**Why chosen:** The domain is inherently relational — users own meetings, meetings have action
-items, action items have reminders. Postgres enforces these with foreign keys and gives strong
-querying for the filters and overdue detection. JSONB columns hold the variable-shaped transcript
-and citations, so I get relational integrity *and* flexible nested data. Free managed Postgres
-(Neon/Render) keeps deployment persistent.
+**Why chosen:** The transcript and analysis data are complex nested objects. Static types catch shape mismatches at compile time, before they become runtime errors. Combined with Zod, one schema definition provides both runtime validation and a compile-time type — no duplication.
 
 **Alternatives considered:**
-- **MongoDB** — *Pros:* transcripts/citations as nested documents feel natural; flexible schema.
-  *Cons:* cross-collection filtering (action items by status/assignee/meeting) and relational
-  integrity are weaker; overdue + joins are clumsier.
-- **MySQL** — *Pros:* solid relational DB. *Cons:* JSON support and ecosystem fit (Prisma + Neon)
-  are less ergonomic than Postgres.
-- **SQLite** — *Pros:* zero provisioning, simplest local dev. *Cons:* most cloud hosts use
-  ephemeral disks → data lost on redeploy; not production-minded.
+- Plain JavaScript — eliminates the build step, but gives up type safety and editor support. The risk of passing malformed data to Prisma or the LLM provider isn't worth the simplicity.
 
-**Trade-offs:** Requires provisioning a database (vs SQLite's file). Mitigated by Neon's free,
-persistent, zero-config tier.
+**Trade-off:** Requires a build step (`tsc`) and `tsx` for local development. Minor overhead with clear payoff.
 
 ---
 
-## D4. ORM — Prisma
+## 3. Database — PostgreSQL
+
+**Choice:** PostgreSQL, hosted on Neon's free tier.
+
+**Why chosen:** The data model is relational — users own meetings, meetings have action items, action items have reminders. PostgreSQL enforces these relationships with foreign keys and handles the filtering and overdue detection queries efficiently. Transcripts and citations are variable-length nested structures, so those are stored as JSONB, giving flexibility where the structure isn't fixed and relational integrity where it is.
+
+**Alternatives considered:**
+- MongoDB — flexible storage works well for transcripts, but filtering action items by status, assignee, and meeting ID across documents is more awkward than relational queries.
+- SQLite — easy to set up locally, but most cloud hosts use temporary disk storage, so data is lost on redeploy.
+- MySQL — capable, but Postgres has better JSON support and integrates more cleanly with Prisma and Neon.
+
+**Trade-off:** Requires a hosted database instance. Neon's free tier is persistent and zero-config, so this is not a practical cost.
+
+---
+
+## 4. ORM — Prisma
 
 **Choice:** Prisma.
 
-**Why chosen:** Type-safe queries that line up with the TypeScript-first stack, a single
-declarative `schema.prisma` that doubles as living documentation, first-class migrations, and a
-clean enum/JSON story. It made the `Meeting → ActionItem → Reminder` relations and the reusable
-`overdueWhere` query trivial and safe.
+**Why chosen:** Prisma generates type-safe query methods from the schema, so malformed queries are caught at compile time. The `schema.prisma` file serves as readable documentation of the data model. Migrations are declarative and version-controlled, and enum/JSONB support works cleanly out of the box.
 
 **Alternatives considered:**
-- **Raw SQL (pg)** — *Pros:* full control, no abstraction. *Cons:* manual typing, hand-written
-  migrations, more boilerplate and footguns.
-- **TypeORM** — *Pros:* mature, decorator-based. *Cons:* heavier, historically rougher migrations
-  and type ergonomics.
-- **Drizzle** — *Pros:* lightweight, SQL-like, great types. *Cons:* younger ecosystem; Prisma's
-  migrations + Studio are more turnkey for this scope.
+- Raw SQL — maximum control and no abstraction layer, but requires manual type definitions and hand-written migrations.
 
-**Trade-offs:** Prisma adds a generated client and a `generate` step. The DX, safety, and
-documentation value clearly justify it.
+**Trade-off:** Adds a generated client and a `prisma generate` step to the build. Justified by the type safety and the schema-as-documentation benefit.
 
 ---
 
-## D5. Authentication — JWT
+## 5. Authentication — JWT
 
-**Choice:** Stateless JWT (bearer tokens), bcrypt-hashed passwords.
+**Choice:** Stateless JWT with bcrypt-hashed passwords.
 
-**Why chosen:** A public, stateless REST API that strangers (evaluators) will call is the textbook
-JWT case. No session store/infra, trivial horizontal scaling, and reviewers authenticate in two
-clicks in Swagger via the `Authorization: Bearer` header.
-
-**Alternatives considered:** **Session-based auth** — *Pros:* easy server-side revocation.
-*Cons:* needs a session store (in-memory dies on restart → forces Redis); cookies plus `CORS(*)`
-are awkward for evaluators hitting the deployed URL from a browser/Swagger.
-
-**Trade-offs:** JWTs can't be revoked before expiry. Mitigated with short-lived tokens
-(`JWT_EXPIRES_IN`). For this scope, revocation isn't required.
-
----
-
-## D6. LLM Provider — Google Gemini
-
-**Choice:** Gemini (e.g. `gemini-2.0-flash`) behind a provider-agnostic `LLMProvider` interface.
-
-**Why chosen:** Generous free tier with no credit card, and — critically — **native structured
-output** (`responseMimeType` + `responseSchema`). That lets me enforce the citation-bearing JSON
-shape at the API level instead of parsing free text, directly supporting the grounding requirement
-(15% of the grade). The `LLMProvider` abstraction means swapping vendors is a one-file change.
+**Why chosen:** JWT is well-suited to a stateless REST API with a public audience. No session store is required, it works naturally with `CORS(*)`, and can authenticate in Swagger by pasting the token into the `Authorization: Bearer` field.
 
 **Alternatives considered:**
-- **OpenAI** — *Pros:* excellent `json_schema` structured outputs. *Cons:* paid credits required.
-- **Anthropic Claude** — *Pros:* strong grounding/instruction following. *Cons:* paid credits.
-- **Groq** — *Pros:* free and very fast. *Cons:* open models; grounding nuance slightly weaker.
-- **OpenRouter** — *Pros:* one API for many models. *Cons:* adds a broker layer; still needs
-  credits for good models.
+- Session-based auth — straightforward revocation, but requires a persistent session store. In-memory sessions disappear on restart; Redis adds a dependency that isn't otherwise needed.
 
-**Trade-offs:** Free-tier rate limits and occasional schema strictness quirks. Mitigated by low
-temperature, a strict prompt, and the programmatic citation validator (defense in depth).
+**Trade-off:** Tokens cannot be revoked before they expire. Acceptable for this scope — tokens are short-lived and there is no sensitive data that would warrant immediate revocation.
 
 ---
 
-## D7. Grounding & Citation Strategy — schema-enforced output + programmatic validation
+## 6. LLM Provider — Google Gemini
 
-**Choice:** Three-layer defense: (1) a strict prompt enumerating allowed timestamps and forbidding
-invention; (2) provider structured output requiring `citations[]` on every item; (3) a
-programmatic `citationValidator` that drops any insight whose citations don't exist in the
-transcript and nulls invented assignees — returning a `grounding` report.
+**Choice:** Gemini (`gemini-2.0-flash`) behind a `LLMProvider` interface.
 
-**Why chosen:** Prompting alone doesn't guarantee grounding; models still hallucinate. Validating
-every citation against the actual transcript makes grounding a *code-enforced invariant*, not a
-hope. The report quantifies what was removed, which is honest and demonstrable.
+**Why chosen:** The free tier requires no credit card, which keeps the project runnable without cost. More importantly, Gemini supports native structured output via `responseSchema` — the exact JSON shape, including required citation fields, is enforced at the API level rather than parsed from free text. The provider interface means swapping to a different LLM is a single-file change.
 
 **Alternatives considered:**
-- **Prompt-only ("please cite")** — *Pros:* simplest. *Cons:* no guarantee; loses points when the
-  model invents content.
-- **RAG / embeddings retrieval** — *Pros:* impressive for large corpora. *Cons:* massive
-  over-engineering for a single short transcript.
+- OpenAI — excellent structured output support, but requires paid credits.
+- Anthropic Claude — strong instruction-following, also requires paid credits.
 
-**Trade-offs:** The validator may drop a legitimately-derived insight if the model cites a wrong
-timestamp. That's the safe direction (no hallucinations shown), and is documented in AI_APPROACH.
+**Trade-off:** The free tier has rate limits. Mitigated by using low temperature, a strict prompt, and a programmatic citation validator as an additional safeguard.
 
 ---
 
-## D8. External Integration — Resend (email)
+## 7. Grounding & Citations — Three-layer validation
 
-**Choice:** Resend as the reminder channel, behind a `Notifier` interface.
+**Choice:** Prompt constraints + Gemini `responseSchema` + programmatic `citationValidator`.
 
-**Why chosen:** Email is the most product-realistic medium for action-item reminders and matches
-the assignment's example reminder format exactly. Resend has a clean SDK and a free tier. The
-`Notifier` abstraction keeps it swappable, and it is *actively used* by the reminder workflow (a
-hard requirement — configuring an SDK without using it does not count).
+**Why chosen:** Relying on the prompt alone is not sufficient — language models can still produce plausible-sounding but incorrect content even with clear instructions. To make grounding a verified property rather than a best-effort one, every citation is cross-checked against the actual transcript in code. A timestamp that doesn't exist in the source is dropped. An insight left with no valid citations is removed entirely. An assignee not found in the participant list is nulled out.
 
 **Alternatives considered:**
-- **Discord / Slack webhook** — *Pros:* dead simple (one URL). *Cons:* a chat ping is less
-  "reminder-like"; Slack now gates webhooks behind app creation.
-- **Telegram Bot** — *Pros:* free, reliable. *Cons:* bot + chat-id setup; less natural for a
-  per-assignee reminder.
-- **Notion / Google Calendar** — *Pros:* visible artifacts. *Cons:* Notion reads as "recording"
-  more than "notifying"; Calendar needs OAuth/service-account setup that risks eating the time
-  budget.
-- **SendGrid** — *Pros:* mature email provider. *Cons:* heavier onboarding/sender verification
-  than Resend.
+- Prompt-only — the simplest approach, but provides no programmatic guarantee. A hallucinated timestamp would pass through silently.
 
-**Trade-offs:** Resend's free tier without a verified domain reliably delivers only to the account
-owner. Mitigated with `REMINDER_TO_OVERRIDE` to route all demo reminders to one verified inbox;
-recipient resolution (assignee → participant email) is still implemented and tested. Documented as
-a known limitation.
+**Trade-off:** The validator may discard a legitimately derived insight if the model cited an incorrect timestamp. Showing less is preferable to showing something that cannot be verified against the source.
 
 ---
 
-## D9. Scheduler — node-cron + secret external-cron endpoint + manual trigger
+## 8. External Integration — Resend (email)
 
-**Choice:** One `reminderService.run()` reachable by three triggers: in-process node-cron,
-a secret-guarded `GET /api/internal/cron/reminders` for an external scheduler, and an authenticated
-`POST /api/reminders/run` for demos.
+**Choice:** Resend for email delivery, behind a `Notifier` interface.
 
-**Why chosen:** node-cron is the simplest fit for this scale. But free hosts idle the dyno, so an
-in-process timer alone is unreliable in production. The external-cron endpoint (driven by GitHub
-Actions / cron-job.org) both **wakes the dyno and runs the job**, and the manual endpoint
-guarantees the reminder is demonstrable on demand. One service, three entry points → robust and
-demoable regardless of host behavior.
+**Why chosen:** Email is a natural fit for action-item reminders and matches the format described in the assignment. Resend has a straightforward SDK and a free tier. The `Notifier` abstraction keeps the reminder workflow decoupled from the specific provider — switching to a different channel is a matter of implementing the interface.
 
 **Alternatives considered:**
-- **In-process cron only** — *Pros:* simplest. *Cons:* silently stops firing on an idled free dyno.
-- **Render Cron Job / managed scheduler** — *Pros:* reliable. *Cons:* not on the free plan.
-- **BullMQ + Redis** — *Pros:* production-grade queue, retries. *Cons:* needs Redis; over-engineering
-  here.
+- Slack/Discord webhook — easy to set up, but a chat notification is a less appropriate format for a task reminder, and Slack now requires app creation for incoming webhooks.
+- Telegram Bot — works well technically, but requires per-user bot and chat ID configuration.
 
-**Trade-offs:** Three triggers is slightly more surface area, but each is a thin wrapper over the
-same well-tested service, and the dedupe window prevents double-sends across triggers.
+**Trade-off:** Resend's free tier without a verified sending domain only delivers reliably to the account owner's email. Handled via `REMINDER_TO_OVERRIDE` for the demo environment. Documented as a known limitation.
 
 ---
 
-## D10. Validation & Schemas — Zod (+ zod-to-openapi)
+## 9. Scheduler — Three trigger paths, one service
 
-**Choice:** Zod for all request validation, surfaced through a `validate` middleware, and reused to
-generate the OpenAPI document.
+**Choice:** `reminderService.run()` callable from three entry points: in-process `node-cron`, a secret-guarded HTTP endpoint, and a JWT-authenticated manual endpoint.
 
-**Why chosen:** One Zod schema gives runtime validation, a static TypeScript type (`z.infer`), and
-OpenAPI documentation — a single source of truth. Error messages are clear and map cleanly into the
-`VALIDATION_ERROR` envelope with field-level `details`.
+**Why chosen:** An in-process cron job is sufficient for local or always-on environments, but Render's free tier idles dynos after 15 minutes of inactivity, which stops the timer. The HTTP endpoint (called by GitHub Actions every 15 minutes) both wakes the dyno and runs the job in the same request. The manual endpoint allows the reminder flow to be demonstrated on demand without waiting for a scheduled run.
 
 **Alternatives considered:**
-- **express-validator** — *Pros:* mature. *Cons:* verbose, no type inference.
-- **Joi** — *Pros:* battle-tested. *Cons:* separate from TS types; no inference.
+- In-process cron only — works locally but silently stops on free-tier hosting when the dyno sleeps.
+- Render Cron Job — a reliable managed option, but not available on the free plan.
 
-**Trade-offs:** Coupling validation, types, and docs to one library. Acceptable — Zod is stable and
-the consolidation is a net simplification.
+**Trade-off:** Three entry points is more surface area than a single scheduler. Each is a thin wrapper over the same service function, and a dedupe window prevents double-sends when multiple triggers fire close together.
 
 ---
 
-## D11. Hosting — Render (+ Neon Postgres, Docker as a fallback)
+## 10. Validation — Zod + zod-to-openapi
 
-**Choice:** Render web service with a Blueprint (`render.yaml`), free Postgres, Docker provided too.
+**Choice:** Zod for all request validation, reused via `zod-to-openapi` to generate the OpenAPI spec.
 
-**Why chosen:** Render offers a free long-running web process (needed so the scheduler can run) plus
-free managed Postgres, with env vars and health checks in one Blueprint. A `Dockerfile` keeps the
-app portable to any container host.
+**Why chosen:** A single Zod schema produces three outputs — runtime validation, a TypeScript type via `z.infer`, and an OpenAPI definition. This eliminates duplication between validation logic and API documentation. Validation errors surface as structured `VALIDATION_ERROR` responses with field-level details, consistent with the unified envelope.
 
 **Alternatives considered:**
-- **Railway** — *Pros:* great DX. *Cons:* free credits are limited/time-bound.
-- **Fly.io** — *Pros:* powerful, always-on options. *Cons:* more config (volumes, Dockerfile).
-- **Vercel** — *Pros:* trivial deploys. *Cons:* serverless — no long-running process for cron;
-  poor fit for the scheduler.
+- express-validator — mature and widely used, but verbose and doesn't produce TypeScript types from schema definitions.
 
-**Trade-offs:** Render's free dyno idles; addressed by the external-cron trigger (D9).
+**Trade-off:** Validation, types, and documentation are coupled to a single library. Zod is stable and actively maintained, so this is an acceptable consolidation.
 
 ---
 
-## D12. Logging — pino
+## 11. Hosting — Render
 
-**Choice:** pino structured JSON logging, with a per-request child logger bound to the trace id.
+**Choice:** Render web service + Neon Postgres, with a Dockerfile provided for portability.
 
-**Why chosen:** Fast, structured JSON that aggregators can parse, satisfying the structured-logging
-requirement (timestamp, traceId, method, path, status, duration, error details). `pino-pretty`
-gives readable local output.
+**Why chosen:** Render's free tier supports a persistent web process, which is required for the in-process scheduler to function. A `render.yaml` Blueprint provisions both the web service and Postgres in one step. The Dockerfile keeps the app deployable on any container platform if needed.
 
 **Alternatives considered:**
-- **winston** — *Pros:* flexible, popular. *Cons:* heavier, slower, more config.
-- **console.log** — *Pros:* zero deps. *Cons:* unstructured; fails the requirement.
+- Railway — good developer experience, but free-tier credits are limited and time-bound.
+- Vercel — serverless execution model doesn't support long-running processes, so the scheduler would not work.
 
-**Trade-offs:** A logging dependency, but small and high-value.
+**Trade-off:** Free dynos idle after 15 minutes of inactivity. Addressed by the GitHub Actions external cron trigger (D9).
 
 ---
 
-## Cross-cutting design notes
+## 12. Logging — pino
 
-- **Unified envelope + trace IDs:** every response is `{ traceId, success, data | error }`
-  (except `/health` and `/api/evaluation`, which return their documented raw shapes). The trace id
-  is generated or propagated from `x-trace-id`/`x-request-id`, echoed in the response header, and
-  bound to every log line.
-- **Centralized error handling:** all errors funnel through one handler that maps `AppError`,
-  `ZodError`, Prisma errors, and malformed JSON into the envelope. The app never crashes on bad
-  input.
-- **Ownership/authorization:** meetings and action items are scoped by `userId`; cross-user access
-  returns 403/404.
-- **Project layout:** feature modules (`routes/controller/service/schemas`) with shared
-  `middleware`, `lib`, and `utils` — easy to navigate and extend.
+**Choice:** pino structured JSON logger, with a per-request child logger bound to the trace ID.
+
+**Why chosen:** pino produces structured JSON output with low overhead, which satisfies the structured logging requirement — every log line includes timestamp, trace ID, method, path, status, duration, and error details where applicable. `pino-pretty` formats it readably in local development.
+
+**Alternatives considered:**
+- `console.log` — no dependencies, but unstructured output doesn't meet the logging requirement.
+
+**Trade-off:** One additional dependency. Given the logging requirements, it's the right tool for the job.

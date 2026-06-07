@@ -98,7 +98,11 @@ Every response includes an `x-trace-id` header and `traceId` in the body.
 
 ---
 
-## Limitations
+## Limitations Discovered
 
-- Integration tests (Postgres/Resend/Gemini) not included. Injectable seams exist to add them.
-- Citation validator is intentionally conservative — see AI_APPROACH.md.
+- Gemini sometimes paraphrases rather than directly quoting a segment — the citation timestamp is valid, but the link is looser than ideal.
+- Assignee-to-email resolution breaks if two participants share the same first name or the transcript name doesn't match the email prefix.
+- The in-process `node-cron` timer stops when the Render free-tier dyno idles. Mitigated by the GitHub Actions external trigger, but a short gap can exist.
+- Resend free tier without a verified domain only delivers to the account owner's email. `REMINDER_TO_OVERRIDE` handles this for the demo.
+- Re-analysis replaces AI-generated action items entirely — any manual status updates to those items are lost on re-run. Manual items are never affected.
+- Integration tests are not included. The service boundaries (Prisma, Notifier, LLMProvider) are injectable, so they can be added without touching the network.

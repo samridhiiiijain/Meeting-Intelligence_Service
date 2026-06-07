@@ -8,28 +8,26 @@ import { buildPageMeta, parsePagination } from '../../utils/pagination';
 import type { PageMeta } from '../../utils/pagination';
 
 export interface ReminderRunResult {
-  triggeredBy: string;
-  scanned: number;
-  sent: number;
-  failed: number;
-  skippedRecent: number;
-  unresolved: number;
+  triggeredBy: string;  // which path triggered it
+  scanned: number;    // total overdue items found
+  sent: number;       // emails successfully sent
+  failed: number;          // send attempts that threw an error
+  skippedRecent: number;          /// items already reminded within dedupe window
+  unresolved: number;    // items where no email could be found
 }
 
 export const remindersService = {
-  /**
-   * Core reminder workflow (single source of truth for all 3 trigger paths):
-   *  1. find overdue action items not reminded within the dedupe window,
-   *  2. resolve a recipient email for each,
-   *  3. send via the Notifier (Resend),
-   *  4. record a Reminder row (SENT/FAILED) — i.e. reminder history.
-   * Never throws on a single failure; one bad item cannot abort the batch.
-   */
+  // Core reminder workflow (single source of truth for all 3 trigger paths):
+  // find overdue items not reminded within dedupe window, resolve recipient,
+  // send via Notifier (Resend), record a Reminder row (SENT/FAILED).
+  // Never throws on a single failure — one bad item cannot abort the batch.
   async run(triggeredBy: string): Promise<ReminderRunResult> {
+    //  Setup dedupe cutoff + logger
     const now = new Date();
     const dedupeCutoff = new Date(now.getTime() - env.REMINDER_DEDUPE_HOURS * 3600_000);
     const log = logger.child({ job: 'reminders', triggeredBy });
 
+    // fetch all overdue items not yet recently reminded
     const overdue = await prisma.actionItem.findMany({
       where: overdueWhere(now),
       include: {
@@ -42,7 +40,7 @@ export const remindersService = {
       },
     });
 
-    const result: ReminderRunResult = {
+    const result: ReminderRunResult = {    //Initialize the result counters
       triggeredBy,
       scanned: overdue.length,
       sent: 0,
@@ -51,15 +49,15 @@ export const remindersService = {
       unresolved: 0,
     };
 
-    const notifier = getNotifier();
+    const notifier = getNotifier();   //Get the notifier (lazy singleton)
 
-    for (const item of overdue) {
+    for (const item of overdue) {    //Process each overdue item in a loop with checks
       if (item.reminders.length > 0) {
-        result.skippedRecent += 1;
+        result.skippedRecent += 1;   // Dedupe: was it recently reminded?
         continue;
       }
 
-      const recipient = resolveRecipient({
+      const recipient = resolveRecipient({    //Resolve recipient email
         assignee: item.assignee,
         meetingParticipants: item.meeting?.participants ?? [],
       });
@@ -70,13 +68,13 @@ export const remindersService = {
         continue;
       }
 
-      const message = buildReminderMessage(recipient, {
+      const message = buildReminderMessage(recipient, {   //Build the reminder message
         task: item.task,
         assignee: item.assignee,
         dueDate: item.dueDate,
       });
 
-      try {
+      try {    //Send and record
         await notifier.send(message);
         await this.record(item.id, recipient, 'SENT', message.text);
         result.sent += 1;
@@ -87,11 +85,11 @@ export const remindersService = {
       }
     }
 
-    log.info(result, 'reminder run complete');
+    log.info(result, 'reminder run complete');   // Log and return
     return result;
   },
 
-  async record(
+  async record(    //the audit trail
     actionItemId: string,
     recipient: string,
     status: 'SENT' | 'FAILED',

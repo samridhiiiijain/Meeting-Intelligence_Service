@@ -4,8 +4,9 @@ import { AppError } from '../../utils/errors';
 import { buildPageMeta, parsePagination, type PageMeta } from '../../utils/pagination';
 import type { CreateMeetingInput, ListMeetingsQuery, TranscriptSegment } from './meetings.schemas';
 
-// Prisma requires InputJsonValue for Json columns. Safe cast — transcript is a
-// validated array of { timestamp, speaker, text } objects.
+// Prisma requires InputJsonValue for Json columns. 
+//  transcript is a validated array of { timestamp, speaker, text } objects.
+// toJson - helper to avoid repeating the ugly (as unknown as Prisma.InputJsonValue) pattern everywhere. 
 const toJson = (v: unknown): Prisma.InputJsonValue => v as Prisma.InputJsonValue;
 
 export const meetingsService = {
@@ -68,7 +69,7 @@ export const meetingsService = {
     return { items, meta: buildPageMeta(total, pagination) };
   },
 
-  /** Helper used by the analysis module: returns the typed transcript. */
+  // Helper used by the analysis module: returns the typed transcript. 
   getTranscript(meeting: { transcript: unknown }): TranscriptSegment[] {
     return (meeting.transcript as TranscriptSegment[]) ?? [];
   },

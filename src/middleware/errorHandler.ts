@@ -5,19 +5,19 @@ import { AppError } from '../utils/errors';
 import { buildError } from '../utils/response';
 import { isProd } from '../config/env';
 
-/**
+/*
  * Centralized error handler (registered last).
  *
  * Maps any error into the unified error envelope:
- *  - AppError              → its own code/status/details
- *  - ZodError              → VALIDATION_ERROR (defensive; validate() usually catches first)
- *  - Prisma known errors   → friendly CONFLICT / NOT_FOUND / VALIDATION_ERROR
- *  - body-parser JSON error → VALIDATION_ERROR (malformed JSON)
- *  - anything else         → INTERNAL_ERROR (message hidden in prod)
+ *  - AppError -  its own code/status/details
+ *  - ZodError  - VALIDATION_ERROR (defensive; validate() usually catches first)
+ *  - Prisma known errors   - friendly CONFLICT / NOT_FOUND / VALIDATION_ERROR
+ *  - body-parser JSON error - VALIDATION_ERROR (malformed JSON)
+ *  - anything else         -  INTERNAL_ERROR (message hidden in prod)
  *
  * The app never crashes on bad input — everything resolves to a JSON response.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   const traceId = (res.locals.traceId as string) || req.traceId;
 

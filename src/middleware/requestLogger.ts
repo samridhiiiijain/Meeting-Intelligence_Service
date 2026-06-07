@@ -1,11 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 
-/**
- * Structured access logging.
- *
- * Emits one structured line per completed request including: traceId (via the
- * bound child logger), method, path, status, and duration. Errors (>=500) log at
- * `error`, client errors (>=400) at `warn`, everything else at `info`.
+/*
+ Structured access logging.
+
+ Emits one structured line per completed request including: traceId (via the
+ bound child logger), method, path, status, and duration. Errors (>=500) log at
+ `error`, client errors (>=400) at `warn`, everything else at `info`.
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
   const start = process.hrtime.bigint();

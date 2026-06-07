@@ -7,7 +7,7 @@ const handler: Options['handler'] = (req: Request, res: Response) => {
   res.status(429).json(buildError(traceId, 'RATE_LIMITED', 'Too many requests — please slow down'));
 };
 
-/** General API limiter: 100 requests / 5 min per IP. */
+// General API limiter: 100 requests / 5 min per IP. 
 export const apiLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 100,
@@ -16,7 +16,7 @@ export const apiLimiter = rateLimit({
   handler,
 });
 
-/** Tighter limiter for auth endpoints: 20 requests / 5 min per IP. */
+// Tighter limiter for auth endpoints: 20 requests / 5 min per IP. 
 export const authLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 20,

@@ -1,11 +1,5 @@
 # Technical Decisions
 
-Each decision below follows the same template: **Choice → Why chosen → Alternatives considered
-(with pros/cons) → Trade-offs**. The guiding principle throughout, per the assignment, is
-*"a simple, well-engineered solution is preferred over an overly complex implementation."*
-
----
-
 ## D1. Runtime & Framework — Express + TypeScript
 
 **Choice:** Node.js with Express and TypeScript.

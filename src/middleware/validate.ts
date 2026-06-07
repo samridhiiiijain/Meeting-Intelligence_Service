@@ -8,13 +8,13 @@ export interface RequestSchemas {
   params?: ZodTypeAny;
 }
 
-/**
- * Validation middleware factory.
- *
- * Validates and (importantly) *replaces* req.body/query/params with the parsed,
- * coerced output so controllers receive clean, typed data. Any failure is turned
- * into a single VALIDATION_ERROR AppError with field-level details, which the
- * global error handler renders into the unified envelope.
+/*
+  Validation middleware factory.
+ 
+  Validates and (importantly) *replaces* req.body/query/params with the parsed,
+  coerced output so controllers receive clean, typed data. Any failure is turned
+  into a single VALIDATION_ERROR AppError with field-level details, which the
+  global error handler renders into the unified envelope.
  */
 export function validate(schemas: RequestSchemas) {
   return (req: Request, _res: Response, next: NextFunction): void => {
@@ -45,5 +45,5 @@ function formatZodIssues(err: ZodError): Array<{ field: string; message: string 
   }));
 }
 
-/** Re-export z for schema files importing from one place. */
+// Re-export z for schema files importing from one place. 
 export { z };

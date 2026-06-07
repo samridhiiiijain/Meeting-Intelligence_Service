@@ -2,7 +2,7 @@
 
 ## Strategy
 
-Tests focus on logic that is deterministic and doesn't require a live database or external API — grounding/citation validation, recipient resolution, overdue detection, response envelope, validation schemas, pagination, and JWT signing. External effects (Gemini, Resend, Prisma) sit behind interfaces with injectable test seams so they can be mocked in future integration tests without touching the network.
+These tests focus on logic that is deterministic and doesn't require a live database or external API — grounding/citation validation, recipient resolution, overdue detection, response envelope, validation schemas, pagination, and JWT signing. External effects (Gemini, Resend, Prisma) sit behind interfaces with injectable test seams so they can be mocked in future integration tests without touching the network.
 
 Run all tests: `npm test` (Vitest, 45 tests across 8 files)
 

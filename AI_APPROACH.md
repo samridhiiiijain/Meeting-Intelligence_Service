@@ -125,4 +125,4 @@ The entire pipeline sits behind an `LLMProvider` interface (`src/lib/llm/provide
 - **Timestamp-level citations** — citations reference a segment by timestamp, not a character span. An insight that synthesises multiple segments cites each relevant timestamp.
 - **Conservative validator** — if the model cites the wrong timestamp for an otherwise valid insight, the item is dropped. This errs toward never showing unsupported content.
 - **Free-tier rate limits** — Gemini's free tier may rate-limit under load. Surfaced as a `DEPENDENCY_ERROR` in the response envelope, not a server crash.
-- **Email deliverability** — Resend's free tier delivers only to the account owner's address. Use `REMINDER_TO_OVERRIDE` for demos (see DECISIONS.md D8).
+- **Email deliverability** — Resend's free tier delivers only to the account owner's address. Use `REMINDER_TO_OVERRIDE` for demos (see DECISIONS.md).

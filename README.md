@@ -18,7 +18,9 @@ The key design principle: every AI-generated insight is **grounded** — it must
 
 **Live API:** https://meeting-intelligence-service-ce9t.onrender.com  
 **Swagger UI:** https://meeting-intelligence-service-ce9t.onrender.com/docs
-**Note:** The deployed instance uses a Gemini free-tier key which has per-minute rate limits. If the `/analyze` endpoint returns a 502, wait 30 seconds and retry.
+
+> **Note:** The deployed instance uses a Gemini free-tier key which has per-minute rate limits. If the `/analyze` endpoint returns a 502, wait 30 seconds and retry.
+
 ---
 
 ## Stack
